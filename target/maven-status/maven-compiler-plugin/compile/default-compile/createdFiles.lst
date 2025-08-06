@@ -1,0 +1,11 @@
+com\san\attendance\SessionServlet.class
+com\san\student\Student.class
+com\san\student\StudentRegisterServlet.class
+com\san\faculty\FacultyLoginServlet.class
+com\san\student\Hello.class
+com\san\student\StudentLoginServlet.class
+com\san\faculty\QrGeneratorServlet.class
+com\san\attendance\Attendance.class
+com\san\faculty\FacultyRegisterServlet.class
+com\san\faculty\Faculty.class
+com\san\faculty\PresentiesServlet.class

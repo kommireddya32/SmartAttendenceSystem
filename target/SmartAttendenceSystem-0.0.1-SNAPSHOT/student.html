@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Student Attendance</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body>
+    <h2>Student Attendance</h2>
+    <button onclick="startScan()">Scan Attendance</button>
+    <div id="reader" style="width: 300px; display: none;"></div>
+    <p id="status"></p>
+
+    <script>
+        const studentId = new URLSearchParams(window.location.search).get("studentId");
+
+        function startScan() {
+            document.getElementById("reader").style.display = "block";
+            const qr = new Html5Qrcode("reader");
+            qr.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                qrCodeMessage => {
+                    qr.stop();
+                    document.getElementById("reader").style.display = "none";
+                    verifyAttendance(qrCodeMessage);
+                },
+                error => {}
+            );
+        }
+
+        function verifyAttendance(qrData) {
+            fetch("SessionServlet", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `action=verify&qrData=${encodeURIComponent(qrData)}&studentId=${encodeURIComponent(studentId)}`
+            })
+            .then(res => res.text())
+            .then(text => {
+                document.getElementById("status").innerText = text;
+            })
+            .catch(err => {
+                document.getElementById("status").innerText = "Error verifying attendance";
+            });
+        }
+    </script>
+</body>
+</html>

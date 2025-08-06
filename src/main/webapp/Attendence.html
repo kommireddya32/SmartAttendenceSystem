@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Attendance System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            text-align: center;
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            font-size: 16px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .start {
+            background-color: #28a745;
+        }
+
+        .stop {
+            background-color: #dc3545;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        #qrImage {
+            margin-top: 30px;
+            display: none;
+            max-width: 300px;
+            border: 2px solid #ccc;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .fade {
+            transition: opacity 300ms ease-in-out;
+            opacity: 1;
+        }
+
+        .fade.hidden {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Attendance Control</h2>
+    <button id="toggleBtn" class="btn start" onclick="toggleAttendance()">Start Attendance</button>
+
+    <!-- New Today Presenties Button -->
+    <br>
+    <button class="btn" style="background-color:#007bff; margin-top:15px;"
+            onclick="window.location.href='PresentiesServlet'">
+        Today Presenties
+    </button>
+
+    <br>
+    <img id="qrImage" src="" alt="QR Code" class="fade">
+</div>
+
+<script>
+    let isAttendanceStarted = false;
+    let intervalId = null;
+
+    const params = new URLSearchParams(window.location.search);
+    const facultyId = params.get("facultyId") || "unknown";
+    const department = params.get("department") || "unknown";
+
+    function toggleAttendance() {
+        const qrImage = document.getElementById("qrImage");
+        const button = document.getElementById("toggleBtn");
+
+        if (!isAttendanceStarted) {
+            updateQr();
+            qrImage.style.display = "block";
+            button.textContent = "Stop Attendance";
+            button.classList.remove("start");
+            button.classList.add("stop");
+            isAttendanceStarted = true;
+
+            intervalId = setInterval(updateQr, 30000);
+        } else {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            const img = document.getElementById("qrImage");
+            img.style.display = "none";
+            button.textContent = "Start Attendance";
+            button.classList.remove("stop");
+            button.classList.add("start");
+            isAttendanceStarted = false;
+        }
+    }
+
+    function updateQr() {
+        const qrImage = document.getElementById("qrImage");
+        qrImage.classList.add('hidden');
+
+        setTimeout(() => {
+            const src = `QrGeneratorServlet?facultyId=${encodeURIComponent(facultyId)}&department=${encodeURIComponent(department)}&t=${Date.now()}`;
+            qrImage.src = src;
+
+            qrImage.onload = function() {
+                qrImage.classList.remove('hidden');
+            };
+
+            qrImage.onerror = function() {
+                console.error('Failed to load QR from servlet:', src);
+                qrImage.classList.remove('hidden');
+            };
+        }, 180);
+    }
+</script>
+
+</body>
+</html>
