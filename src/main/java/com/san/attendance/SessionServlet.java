@@ -152,6 +152,15 @@ public class SessionServlet extends HttpServlet {
             e.printStackTrace();
             out.println("ERR:Internal error");
         }
+<<<<<<< HEAD
+=======
+    }
+
+    // convenience: allow GET for quick testing
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        doPost(req, resp);
+>>>>>>> 1322caba89c84fcb26cf5626b808a789690c643c
     }
 
     // convenience: allow GET for quick testing

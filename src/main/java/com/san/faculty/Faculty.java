@@ -57,4 +57,8 @@ public class Faculty {
 
     public LocalDateTime getQrGeneratedTime() { return qrGeneratedTime; }
     public void setQrGeneratedTime(LocalDateTime qrGeneratedTime) { this.qrGeneratedTime = qrGeneratedTime; }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 1322caba89c84fcb26cf5626b808a789690c643c

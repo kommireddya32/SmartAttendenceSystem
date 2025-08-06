@@ -104,4 +104,8 @@ public class QrGeneratorServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "QR generation failed");
         }
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 1322caba89c84fcb26cf5626b808a789690c643c
