@@ -14,10 +14,8 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
 import java.io.*;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Arrays;
 
 @WebServlet("/SessionServlet")
@@ -70,7 +68,7 @@ public class SessionServlet extends HttpServlet {
 
         // debug log
         System.out.println("SessionServlet: scannedQrData='" + scannedQrData + "' studentId=" + studentId);
-        System.out.println("SessionServlet: parts=" + Arrays.toString(scannedQrData.split("_",3)));
+        System.out.println("SessionServlet: parts=" + Arrays.toString(scannedQrData.split("_", 3)));
 
         String[] parts = scannedQrData.split("_", 3);
         if (parts.length != 3) {
@@ -152,15 +150,6 @@ public class SessionServlet extends HttpServlet {
             e.printStackTrace();
             out.println("ERR:Internal error");
         }
-<<<<<<< HEAD
-=======
-    }
-
-    // convenience: allow GET for quick testing
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        doPost(req, resp);
->>>>>>> 1322caba89c84fcb26cf5626b808a789690c643c
     }
 
     // convenience: allow GET for quick testing

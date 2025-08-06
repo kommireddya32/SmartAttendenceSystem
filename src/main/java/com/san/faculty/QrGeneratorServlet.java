@@ -5,12 +5,10 @@ import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.common.BitMatrix;
-
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
-
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
@@ -24,7 +22,6 @@ public class QrGeneratorServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final int QR_WIDTH = 300;
     private static final int QR_HEIGHT = 300;
-
     private SessionFactory sessionFactory;
 
     @Override
@@ -45,17 +42,14 @@ public class QrGeneratorServlet extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String facultyId = request.getParameter("facultyId");
         String department = request.getParameter("department");
         if (facultyId == null || facultyId.isBlank()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing facultyId");
             return;
         }
-        if (department == null) department = "";
-
-        // Use epoch seconds to avoid format mismatch
+        if (department == null) department = ""; // Use epoch seconds to avoid format mismatch
         long epochSeconds = Instant.now().getEpochSecond();
         String qrContent = facultyId + "_" + department + "_" + epochSeconds;
 
@@ -69,15 +63,11 @@ public class QrGeneratorServlet extends HttpServlet {
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Faculty not found: " + facultyId);
                     return;
                 }
-
-                faculty.setLatestQrData(qrContent);
-                // store LocalDateTime based on system default zone
+                faculty.setLatestQrData(qrContent); // store LocalDateTime based on system default zone
                 faculty.setQrGeneratedTime(LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), ZoneId.systemDefault()));
-
                 session.merge(faculty);
                 session.flush(); // ensure SQL executed before commit
                 tx.commit();
-
                 System.out.println("QrGeneratorServlet: saved latestQrData='" + qrContent + "' for faculty=" + facultyId);
             } catch (Exception e) {
                 tx.rollback();
@@ -104,8 +94,4 @@ public class QrGeneratorServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "QR generation failed");
         }
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 1322caba89c84fcb26cf5626b808a789690c643c
