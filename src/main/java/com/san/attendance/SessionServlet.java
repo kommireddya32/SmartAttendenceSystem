@@ -1,25 +1,29 @@
 package com.san.attendance;
 
 import com.san.student.Student;
+import com.san.faculty.Faculty;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.*;
 
-import org.hibernate.*;
+import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.query.Query;
 
 import java.io.*;
+import java.time.Duration;
 import java.time.LocalDate;
-import java.util.concurrent.ConcurrentHashMap;
+import java.time.LocalDateTime;
 
 @WebServlet("/SessionServlet")
 public class SessionServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
-    // Store full qrData string for each facultyId
-    private static final ConcurrentHashMap<String, String> publishedMap = new ConcurrentHashMap<>();
+    // Validity window in seconds (3 minutes)
+    private static final long VALIDITY_SECONDS = 3 * 60;
 
     private SessionFactory sessionFactory;
 
@@ -28,11 +32,12 @@ public class SessionServlet extends HttpServlet {
         try {
             Configuration cfg = new Configuration();
             cfg.configure("hibernate.cfg.xml");
+            cfg.addAnnotatedClass(Faculty.class);
             cfg.addAnnotatedClass(Student.class);
             cfg.addAnnotatedClass(Attendance.class);
             sessionFactory = cfg.buildSessionFactory();
         } catch (Throwable ex) {
-            throw new ServletException("Hibernate init failed", ex);
+            throw new ServletException("Failed to create SessionFactory in SessionServlet.init()", ex);
         }
     }
 
@@ -49,42 +54,54 @@ public class SessionServlet extends HttpServlet {
         resp.setContentType("text/plain; charset=utf-8");
         PrintWriter out = resp.getWriter();
 
-        if ("publish".equalsIgnoreCase(action)) {
-            String qrData = req.getParameter("qrData");
-
-            if (qrData == null || !qrData.contains("_")) {
-                out.println("ERR:Invalid QR data");
-                return;
-            }
-
-            String[] parts = qrData.split("_");
-            String facultyId = parts[0]; // format: facultyId_department_timestamp
-
-            publishedMap.put(facultyId, qrData);
-            out.println("OK:Published");
-            return;
-        }
-
         if ("verify".equalsIgnoreCase(action)) {
             String studentId = req.getParameter("studentId");
             String scannedQrData = req.getParameter("qrData");
-
             if (studentId == null || scannedQrData == null || !scannedQrData.contains("_")) {
                 out.println("ERR:Missing or invalid studentId or qrData");
                 return;
             }
 
-            String facultyId = scannedQrData.split("_")[0];
-
-            // Check if published QR matches scanned QR
-            String expectedQr = publishedMap.get(facultyId);
-            if (expectedQr == null || !expectedQr.equals(scannedQrData)) {
-                out.println("ERR:QR mismatch or expired");
+            String[] parts = scannedQrData.split("_", 3);
+            if (parts.length != 3) {
+                out.println("ERR:Invalid QR format");
                 return;
             }
+            String facultyId = parts[0];
 
-            // Proceed to mark attendance
             try (Session session = sessionFactory.openSession()) {
+                // fetch faculty row
+                Faculty faculty = session.get(Faculty.class, facultyId);
+                if (faculty == null) {
+                    out.println("ERR:Invalid faculty");
+                    return;
+                }
+                String expectedQr = faculty.getLatestQrData();
+                LocalDateTime generatedTime = faculty.getQrGeneratedTime();
+
+                if (expectedQr == null) {
+                    out.println("ERR:No published QR");
+                    return;
+                }
+
+                // exact-string check
+                if (!expectedQr.equals(scannedQrData)) {
+                    out.println("ERR:QR mismatch or expired");
+                    return;
+                }
+
+                // time window check
+                if (generatedTime == null) {
+                    out.println("ERR:QR time missing");
+                    return;
+                }
+                long ageSeconds = Math.abs(Duration.between(generatedTime, LocalDateTime.now()).getSeconds());
+                if (ageSeconds > VALIDITY_SECONDS) {
+                    out.println("ERR:QR expired");
+                    return;
+                }
+
+                // mark attendance
                 Transaction tx = session.beginTransaction();
 
                 Student student = session.get(Student.class, studentId);
@@ -95,7 +112,6 @@ public class SessionServlet extends HttpServlet {
                 }
 
                 String today = LocalDate.now().toString();
-
                 String hql = "FROM Attendance a WHERE a.studentId = :sid AND a.date = :d";
                 Query<Attendance> query = session.createQuery(hql, Attendance.class);
                 query.setParameter("sid", studentId);
@@ -123,5 +139,10 @@ public class SessionServlet extends HttpServlet {
         }
 
         out.println("ERR:Unknown action");
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        doPost(req, resp);
     }
 }
