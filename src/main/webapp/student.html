@@ -1,48 +1,146 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Student Attendance</title>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <meta charset="utf-8" />
+  <title>Student Attendance - Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; padding: 16px; }
+    #reader { width: 320px; height: 240px; border: 1px solid #ddd; margin-bottom: 12px; display: none; }
+    #status { margin-top: 8px; font-weight:600; }
+    #lastResponse { margin-top: 6px; color: #333; }
+    button { padding: 10px 14px; font-size: 14px; }
+  </style>
 </head>
 <body>
-    <h2>Student Attendance</h2>
-    <button onclick="startScan()">Scan Attendance</button>
-    <div id="reader" style="width: 300px; display: none;"></div>
-    <p id="status"></p>
+  <h2>Student Attendance</h2>
 
-    <script>
-        const studentId = new URLSearchParams(window.location.search).get("studentId");
+  <button id="toggleScanBtn">Start Scanning Attendance</button>
 
-        function startScan() {
-            document.getElementById("reader").style.display = "block";
-            const qr = new Html5Qrcode("reader");
-            qr.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
-                qrCodeMessage => {
-                    qr.stop();
-                    document.getElementById("reader").style.display = "none";
-                    verifyAttendance(qrCodeMessage);
-                },
-                error => {}
-            );
+  <div id="reader"></div>
+
+  <div id="status">Status: idle</div>
+  <div id="lastResponse"></div>
+
+  <script>
+    // ---------- Config ----------
+    const COOLDOWN_MS = 5000; // don't resend same QR within this time
+    const VALIDATE_URL_PATH = '/SessionServlet'; // will be appended to origin+context
+    // ---------------------------
+
+    function getStudentId() {
+      return new URLSearchParams(window.location.search).get('studentId');
+    }
+    function getSessionUrl() {
+      const path = window.location.pathname.replace(/\/[^/]*$/, '');
+      return window.location.origin + path + VALIDATE_URL_PATH;
+    }
+    function nowMs(){ return Date.now(); }
+
+    const toggleBtn = document.getElementById('toggleScanBtn');
+    const readerEl = document.getElementById('reader');
+    const statusEl = document.getElementById('status');
+    const lastRespEl = document.getElementById('lastResponse');
+
+    const studentId = getStudentId();
+    if (!studentId) {
+      statusEl.textContent = 'Error: studentId missing in URL (use ?studentId=...)';
+      toggleBtn.disabled = true;
+      throw new Error('Missing studentId');
+    }
+
+    let html5QrScanner = null;
+    let scanning = false;
+    let lastSentQR = null;
+    let lastSentAt = 0;
+
+    toggleBtn.addEventListener('click', () => {
+      if (!scanning) startScanner();
+      else stopScanner();
+    });
+
+    function startScanner() {
+      statusEl.textContent = 'Status: starting camera...';
+      readerEl.style.display = 'block';
+      toggleBtn.textContent = 'Stop Scanning';
+      scanning = true;
+
+      html5QrScanner = new Html5Qrcode('reader');
+
+      html5QrScanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: Math.min(window.innerWidth, 300) },
+        onScanSuccess,
+        onScanFailure
+      ).then(() => {
+        statusEl.textContent = 'Status: scanning...';
+      }).catch(err => {
+        statusEl.textContent = 'Error starting camera: ' + err;
+        stopScanner();
+      });
+    }
+
+    function stopScanner() {
+      if (html5QrScanner) {
+        html5QrScanner.stop().catch(()=>{}).finally(()=>{ html5QrScanner = null; });
+      }
+      readerEl.style.display = 'none';
+      scanning = false;
+      toggleBtn.textContent = 'Start Scanning Attendance';
+      statusEl.textContent = 'Status: stopped';
+    }
+
+    function onScanSuccess(decodedText) {
+      // Debounce identical scans
+      const now = nowMs();
+      if (decodedText === lastSentQR && (now - lastSentAt) < COOLDOWN_MS) {
+        // ignore repeated scan during cooldown
+        return;
+      }
+      lastSentQR = decodedText;
+      lastSentAt = now;
+
+      // Show brief status (no scanned text)
+      statusEl.textContent = 'Status: scanned — validating...';
+
+      // Send to server
+      const url = getSessionUrl();
+      const payload = `action=verify&qrData=${encodeURIComponent(decodedText)}&studentId=${encodeURIComponent(studentId)}`;
+
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: payload,
+        cache: 'no-store'
+      })
+      .then(res => res.text())
+      .then(txt => {
+        lastRespEl.textContent = `Server: ${txt}`;
+        if (txt && txt.startsWith('OK')) {
+          statusEl.textContent = 'Status: attendance recorded ✅';
+          // optionally stop scanning on success:
+          // stopScanner();
+        } else {
+          statusEl.textContent = 'Status: ' + txt;
         }
+      })
+      .catch(err => {
+        console.error(err);
+        statusEl.textContent = 'Status: network/error sending request';
+        lastRespEl.textContent = 'Error: ' + (err && err.message ? err.message : err);
+      });
+    }
 
-        function verifyAttendance(qrData) {
-            fetch("SessionServlet", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: `action=verify&qrData=${encodeURIComponent(qrData)}&studentId=${encodeURIComponent(studentId)}`
-            })
-            .then(res => res.text())
-            .then(text => {
-                document.getElementById("status").innerText = text;
-            })
-            .catch(err => {
-                document.getElementById("status").innerText = "Error verifying attendance";
-            });
-        }
-    </script>
+    function onScanFailure(error) {
+      // ignore frame-level decode failures (noisy)
+    }
+
+    // stop scanner on page unload/visibility change
+    window.addEventListener('beforeunload', () => { stopScanner(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stopScanner();
+      else if (scanning && !html5QrScanner) startScanner();
+    });
+  </script>
 </body>
 </html>

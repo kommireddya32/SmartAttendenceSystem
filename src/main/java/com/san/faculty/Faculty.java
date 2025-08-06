@@ -1,13 +1,14 @@
 package com.san.faculty;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "faculty")
 public class Faculty {
 
     @Id
-    @Column(name = "faculty_id")
+    @Column(name = "faculty_id", length = 50)
     private String facultyId;
 
     @Column(name = "faculty_name", nullable = false)
@@ -19,37 +20,41 @@ public class Faculty {
     @Column(name = "password", nullable = false)
     private String password;
 
-    // Getters and Setters
+    @Column(name = "latest_qr_data")
+    private String latestQrData;
 
-    public String getFacultyId() {
-        return facultyId;
+    @Column(name = "qr_generated_time")
+    private LocalDateTime qrGeneratedTime;
+
+    // ===== Constructors =====
+    public Faculty() {
+        // Required by Hibernate
     }
 
-    public void setFacultyId(String facultyId) {
+    // Parameterized constructor (without QR fields)
+    public Faculty(String facultyId, String facultyName, String department, String password) {
         this.facultyId = facultyId;
-    }
-
-    public String getFacultyName() {
-        return facultyName;
-    }
-
-    public void setFacultyName(String facultyName) {
         this.facultyName = facultyName;
-    }
-
-    public String getDepartment() {
-        return department;
-    }
-
-    public void setDepartment(String department) {
         this.department = department;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
         this.password = password;
     }
+
+    // ===== Getters / Setters =====
+    public String getFacultyId() { return facultyId; }
+    public void setFacultyId(String facultyId) { this.facultyId = facultyId; }
+
+    public String getFacultyName() { return facultyName; }
+    public void setFacultyName(String facultyName) { this.facultyName = facultyName; }
+
+    public String getDepartment() { return department; }
+    public void setDepartment(String department) { this.department = department; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public String getLatestQrData() { return latestQrData; }
+    public void setLatestQrData(String latestQrData) { this.latestQrData = latestQrData; }
+
+    public LocalDateTime getQrGeneratedTime() { return qrGeneratedTime; }
+    public void setQrGeneratedTime(LocalDateTime qrGeneratedTime) { this.qrGeneratedTime = qrGeneratedTime; }
 }
