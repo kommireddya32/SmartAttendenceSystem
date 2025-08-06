@@ -5,28 +5,128 @@
   <title>Student Attendance - Scanner</title>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; padding: 16px; }
-    #reader { width: 320px; height: 240px; border: 1px solid #ddd; margin-bottom: 12px; display: none; }
-    #status { margin-top: 8px; font-weight:600; }
-    #lastResponse { margin-top: 6px; color: #333; }
-    button { padding: 10px 14px; font-size: 14px; }
+    /* ---------- Responsive + mobile-friendly styles only ---------- */
+    :root{
+      --max-reader-width: 420px;
+      --gap: 12px;
+      --btn-padding-vertical: 14px;
+      --btn-padding-horizontal: 18px;
+      --btn-font-size: 16px;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 16px;
+      margin: 0;
+      background: #ffffff;
+      color: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 640px;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    h2 {
+      margin: 0 0 var(--gap) 0;
+      font-size: 20px;
+      text-align: center;
+    }
+
+    /* make reader responsive - use full width on small screens */
+    #reader {
+      width: 100%;
+      max-width: var(--max-reader-width);
+      aspect-ratio: 4 / 3; /* keeps camera preview shape consistent */
+      height: auto;
+      border: 1px solid #ddd;
+      margin: var(--gap) auto;
+      display: none;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #000; /* shows black while camera initializes */
+    }
+
+    /* make controls centered and touch-friendly */
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 6px;
+    }
+
+    button {
+      padding: var(--btn-padding-vertical) var(--btn-padding-horizontal);
+      font-size: var(--btn-font-size);
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      min-width: 160px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+    }
+
+    #toggleScanBtn {
+      background: #1976d2;
+      color: #fff;
+    }
+
+    #toggleScanBtn.stop {
+      background: #d32f2f;
+    }
+
+    #status {
+      margin-top: 12px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    #lastResponse {
+      margin-top: 6px;
+      text-align: center;
+      color: #333;
+      font-size: 14px;
+      word-break: break-word;
+    }
+
+    /* small screens adjustments */
+    @media (max-width: 420px) {
+      :root{
+        --max-reader-width: 96vw;
+        --btn-font-size: 15px;
+        --btn-padding-vertical: 12px;
+        --btn-padding-horizontal: 14px;
+      }
+      button { min-width: 140px; }
+      h2 { font-size: 18px; }
+    }
   </style>
 </head>
 <body>
-  <h2>Student Attendance</h2>
+  <div class="page">
+    <h2>Student Attendance</h2>
 
-  <button id="toggleScanBtn">Start Scanning Attendance</button>
+    <div class="controls" style="justify-content:center;">
+      <button id="toggleScanBtn">Start Scanning Attendance</button>
+    </div>
 
-  <div id="reader"></div>
+    <div id="reader"></div>
 
-  <div id="status">Status: idle</div>
-  <div id="lastResponse"></div>
+    <div id="status">Status: idle</div>
+    <div id="lastResponse"></div>
+  </div>
 
   <script>
-    // ---------- Config ----------
+    // ---------- unchanged logic except a responsive qrbox calculation ----------
     const COOLDOWN_MS = 5000; // don't resend same QR within this time
-    const VALIDATE_URL_PATH = '/SessionServlet'; // will be appended to origin+context
-    // ---------------------------
+    const VALIDATE_URL_PATH = '/SessionServlet';
 
     function getStudentId() {
       return new URLSearchParams(window.location.search).get('studentId');
@@ -63,13 +163,18 @@
       statusEl.textContent = 'Status: starting camera...';
       readerEl.style.display = 'block';
       toggleBtn.textContent = 'Stop Scanning';
+      toggleBtn.classList.add('stop');
       scanning = true;
 
       html5QrScanner = new Html5Qrcode('reader');
 
+      // responsive qrbox: use most of viewport width but cap it to a reasonable max
+      const availableWidth = Math.min(window.innerWidth * 0.9, 420); // mobile-friendly
+      const qrboxSize = Math.round(Math.min(availableWidth, 420));
+
       html5QrScanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: Math.min(window.innerWidth, 300) },
+        { fps: 10, qrbox: qrboxSize },
         onScanSuccess,
         onScanFailure
       ).then(() => {
@@ -87,23 +192,20 @@
       readerEl.style.display = 'none';
       scanning = false;
       toggleBtn.textContent = 'Start Scanning Attendance';
+      toggleBtn.classList.remove('stop');
       statusEl.textContent = 'Status: stopped';
     }
 
     function onScanSuccess(decodedText) {
-      // Debounce identical scans
       const now = nowMs();
       if (decodedText === lastSentQR && (now - lastSentAt) < COOLDOWN_MS) {
-        // ignore repeated scan during cooldown
         return;
       }
       lastSentQR = decodedText;
       lastSentAt = now;
 
-      // Show brief status (no scanned text)
       statusEl.textContent = 'Status: scanned — validating...';
 
-      // Send to server
       const url = getSessionUrl();
       const payload = `action=verify&qrData=${encodeURIComponent(decodedText)}&studentId=${encodeURIComponent(studentId)}`;
 
@@ -118,8 +220,6 @@
         lastRespEl.textContent = `Server: ${txt}`;
         if (txt && txt.startsWith('OK')) {
           statusEl.textContent = 'Status: attendance recorded ✅';
-          // optionally stop scanning on success:
-          // stopScanner();
         } else {
           statusEl.textContent = 'Status: ' + txt;
         }
@@ -140,6 +240,18 @@
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) stopScanner();
       else if (scanning && !html5QrScanner) startScanner();
+    });
+
+    // Optional: adjust qrbox on orientation/resize so scanning area stays correct
+    window.addEventListener('resize', () => {
+      // if scanning, restart scanner with new qrbox size
+      if (scanning && html5QrScanner) {
+        // a lightweight restart: stop then start (keeps behavior same)
+        html5QrScanner.stop().then(() => {
+          html5QrScanner = null;
+          startScanner();
+        }).catch(()=>{ startScanner(); });
+      }
     });
   </script>
 </body>
