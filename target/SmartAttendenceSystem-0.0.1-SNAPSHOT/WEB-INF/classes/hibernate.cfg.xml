@@ -8,9 +8,9 @@
    	  <property name="connection.driver_class">com.mysql.cj.jdbc.Driver</property>  
       <property name="hbm2ddl.auto">update</property>  
       <property name="dialect">org.hibernate.dialect.MySQL8Dialect</property>  
-      <property name="connection.url">jdbc:mysql://sql12.freesqldatabase.com:3306/sql12794729</property>  
-      <property name="connection.username">sql12794729</property>  
-      <property name="connection.password">gW4492jXAy</property>  
+      <property name="connection.url">jdbc:mysql://sql12.freesqldatabase.com:3306/sql12796933</property>  
+      <property name="connection.username">sql12796933</property>  
+      <property name="connection.password">pc7pYtXkE4</property>  
       
    </session-factory>  
 </hibernate-configuration>
